@@ -27,7 +27,7 @@ def read_file(*paths):
 
 
 src_file = read_file('es2csv_cli.py')
-url = 'https://github.com/taraslayshchuk/es2csv'
+url = 'https://github.com/Siwach16/es2csv'
 
 
 def get_version():
