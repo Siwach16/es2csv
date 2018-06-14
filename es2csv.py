@@ -7,12 +7,17 @@ import progressbar
 from backports import csv
 from functools import wraps
 
+"""
+    NOTICE : This file has been modified from its original distribution
+    MODIFIED BY : Ajay Siwach
+
+"""
 
 FLUSH_BUFFER = 1000  # Chunk of docs to flush in temp file
 CONNECTION_TIMEOUT = 120
 TIMES_TO_TRY = 3
 RETRY_DELAY = 60
-META_FIELDS = [u'_id', u'_index', u'_score', u'_type']
+META_FIELDS = [u'_id', u'_index', u'_score', u'_type', u'_routing']
 
 
 # Retry decorator for functions with exceptions
