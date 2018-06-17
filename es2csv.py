@@ -57,7 +57,8 @@ class Es2csv:
         self.scroll_time = '30m'
 
         self.csv_headers = list(META_FIELDS) if self.opts.meta_fields else []
-        self.tmp_file = '{}.tmp'.format(opts.output_file)
+        self.json_field_dict = self.parse_json_mapping(self.opts.key_mapping) if self.opts.json_mode else {}
+        self.tmp_file ='{}'.format(opts.output_file) if self.opts.json_mode else '{}.tmp'.format(opts.output_file) 
 
     @retry(elasticsearch.exceptions.ConnectionError, tries=TIMES_TO_TRY)
     def create_connection(self):
@@ -136,7 +137,8 @@ class Es2csv:
             print(json.dumps(res, ensure_ascii=False).encode('utf8'))
 
         if self.num_results > 0:
-            codecs.open(self.opts.output_file, mode='w', encoding='utf-8').close()
+            if not self.opts.json_mode :
+                codecs.open(self.opts.output_file, mode='w', encoding='utf-8').close()
             codecs.open(self.tmp_file, mode='w', encoding='utf-8').close()
 
             hit_list = []
@@ -197,7 +199,10 @@ class Es2csv:
                 if header not in self.csv_headers:
                     self.csv_headers.append(header)
                 try:
-                    out[header] = '{}{}{}'.format(out[header], self.opts.delimiter, source)
+                    if self.opts.json_mode:
+                        self.format_lf_data(out, header, source)  
+                    else:
+                        out[header] =  '{}{}{}'.format(out[header], self.opts.delimiter, source)
                 except:
                     out[header] = source
 
@@ -206,9 +211,21 @@ class Es2csv:
                 out = {field: hit[field] for field in META_FIELDS} if self.opts.meta_fields else {}
                 if '_source' in hit and len(hit['_source']) > 0:
                     to_keyvalue_pairs(hit['_source'])
-                    tmp_file.write('{}\n'.format(json.dumps(out)))
+                    if self.opts.env:
+                        out['env'] = self.opts.env
+                        tmp_file.write('{}'.format(json.dumps(out)))
+                    else:
+                        tmp_file.write('{}\n'.format(json.dumps(out)))
+                
         tmp_file.close()
-
+    
+    def format_lf_data(self, out, json_key, source):
+        if(json_key in self.json_field_dict):
+            if json_key == 'urn':
+                source=source.split(':')[2]
+            out[self.json_field_dict[json_key]] = source
+    
+    
     def write_to_csv(self):
         if self.num_results > 0:
             self.num_results = sum(1 for line in codecs.open(self.tmp_file, mode='r', encoding='utf-8'))
@@ -242,3 +259,6 @@ class Es2csv:
             self.es_conn.clear_scroll(body=','.join(self.scroll_ids))
         except:
             pass
+
+    def parse_json_mapping(self,json_mapping_str):
+        return json.loads(json_mapping_str)

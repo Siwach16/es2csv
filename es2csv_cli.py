@@ -41,7 +41,10 @@ def main():
     p.add_argument('--client-key', dest='client_key', default=None, type=str, help='Location of Client Cert Key.')
     p.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__, help='Show version and exit.')
     p.add_argument('--debug', dest='debug_mode', action='store_true', help='Debug mode on.')
-
+    p.add_argument('--json', dest='json_mode', action='store_true', help='Override csv format to json.')
+    p.add_argument('--json-key-mapping', dest='key_mapping', type=str, help='Json format of key value pairs for mapping conversion.')
+    p.add_argument('--env', dest='env', type=str, help='environment')
+    
     if len(sys.argv) == 1:
         p.print_help()
         exit()
@@ -51,7 +54,8 @@ def main():
     es.create_connection()
     es.check_indexes()
     es.search_query()
-    es.write_to_csv()
+    if not opts.json_mode:
+        es.write_to_csv()
     es.clean_scroll_ids()
 
 
