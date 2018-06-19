@@ -56,6 +56,8 @@ def main():
     es.search_query()
     if not opts.json_mode:
         es.write_to_csv()
+    else:
+        es.rename_remove_tmp()
     es.clean_scroll_ids()
 
 

@@ -58,7 +58,7 @@ class Es2csv:
 
         self.csv_headers = list(META_FIELDS) if self.opts.meta_fields else []
         self.json_field_dict = self.parse_json_mapping(self.opts.key_mapping) if self.opts.json_mode else {}
-        self.tmp_file ='{}'.format(opts.output_file) if self.opts.json_mode else '{}.tmp'.format(opts.output_file) 
+        self.tmp_file ='{}.tmp'.format(opts.output_file) 
 
     @retry(elasticsearch.exceptions.ConnectionError, tries=TIMES_TO_TRY)
     def create_connection(self):
@@ -208,12 +208,13 @@ class Es2csv:
 
         with codecs.open(self.tmp_file, mode='a', encoding='utf-8') as tmp_file:
             for hit in hit_list:
-                out = {field: hit[field] for field in META_FIELDS} if self.opts.meta_fields else {}
+                meta_set=set(META_FIELDS).intersection(set(self.json_field_dict.keys())) if self.opts.json_mode else META_FIELDS
+                out = {self.json_field_dict[field] if self.opts.json_mode else field : hit[field] for field in meta_set } if self.opts.meta_fields else {}
                 if '_source' in hit and len(hit['_source']) > 0:
                     to_keyvalue_pairs(hit['_source'])
                     if self.opts.env:
                         out['env'] = self.opts.env
-                        tmp_file.write('{}'.format(json.dumps(out)))
+                        tmp_file.write('{}\n'.format(json.dumps(out)))
                     else:
                         tmp_file.write('{}\n'.format(json.dumps(out)))
                 
@@ -223,8 +224,11 @@ class Es2csv:
         if(json_key in self.json_field_dict):
             if json_key == 'urn':
                 source=source.split(':')[2]
-            out[self.json_field_dict[json_key]] = source
-    
+                out[self.json_field_dict[json_key]] = source
+            elif json_key == 'user_jid':
+                out['id'],out['provider']=source.split('@')[0],source.split('@')[1]
+            else:
+                out[self.json_field_dict[json_key]] = source
     
     def write_to_csv(self):
         if self.num_results > 0:
@@ -262,3 +266,6 @@ class Es2csv:
 
     def parse_json_mapping(self,json_mapping_str):
         return json.loads(json_mapping_str)
+    
+    def rename_remove_tmp(self):
+        os.rename(self.tmp_file, self.opts.output_file)
