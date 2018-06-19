@@ -268,4 +268,7 @@ class Es2csv:
         return json.loads(json_mapping_str)
     
     def rename_remove_tmp(self):
-        os.rename(self.tmp_file, self.opts.output_file)
+        try:
+            os.rename(self.tmp_file, self.opts.output_file)
+        except:
+            print('********* File Not Found *********')
