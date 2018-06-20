@@ -58,7 +58,12 @@ class Es2csv:
 
         self.csv_headers = list(META_FIELDS) if self.opts.meta_fields else []
         self.json_field_dict = self.parse_json_mapping(self.opts.key_mapping) if self.opts.json_mode else {}
-        self.tmp_file ='{}.tmp'.format(opts.output_file) 
+        self.tmp_file ='{}.tmp'.format(opts.output_file)
+        
+        self.domain_cache= {}
+        if self.opts.cache:
+            with open(self.opts.cache_file) as f: 
+                self.domain_cache = json.load(f)
 
     @retry(elasticsearch.exceptions.ConnectionError, tries=TIMES_TO_TRY)
     def create_connection(self):
@@ -178,7 +183,7 @@ class Es2csv:
             bar.finish()
 
     def flush_to_file(self, hit_list):
-        def to_keyvalue_pairs(source, ancestors=[], header_delimeter='.'):
+        def to_keyvalue_pairs(source, ancestors=[], header_delimeter='.',current_hit=None):
             def is_list(arg):
                 return type(arg) is list
 
@@ -187,7 +192,7 @@ class Es2csv:
 
             if is_dict(source):
                 for key in source.keys():
-                    to_keyvalue_pairs(source[key], ancestors + [key])
+                    to_keyvalue_pairs(source[key], ancestors + [key],current_hit=source)
 
             elif is_list(source):
                 if self.opts.kibana_nested:
@@ -200,7 +205,7 @@ class Es2csv:
                     self.csv_headers.append(header)
                 try:
                     if self.opts.json_mode:
-                        self.format_lf_data(out, header, source)  
+                        self.format_lf_data(out, header, source,current_hit)  
                     else:
                         out[header] =  '{}{}{}'.format(out[header], self.opts.delimiter, source)
                 except:
@@ -214,19 +219,23 @@ class Es2csv:
                     to_keyvalue_pairs(hit['_source'])
                     if self.opts.env:
                         out['env'] = self.opts.env
+                        if self.opts.cache:
+                            out.pop('tenant_id',None)
                         tmp_file.write('{}\n'.format(json.dumps(out)))
                     else:
                         tmp_file.write('{}\n'.format(json.dumps(out)))
                 
         tmp_file.close()
     
-    def format_lf_data(self, out, json_key, source):
+    def format_lf_data(self, out, json_key, source,current_hit):
         if(json_key in self.json_field_dict):
             if json_key == 'urn':
                 source=source.split(':')[2]
                 out[self.json_field_dict[json_key]] = source
             elif json_key == 'user_jid':
                 out['id'],out['provider']=source.split('@')[0],source.split('@')[1]
+            elif json_key == 'domain_uuid' and source is None and self.opts.cache:
+                out[self.json_field_dict[json_key]]=self.domain_cache[str(current_hit['domain_id'])]
             else:
                 out[self.json_field_dict[json_key]] = source
     
@@ -268,4 +277,7 @@ class Es2csv:
         return json.loads(json_mapping_str)
     
     def rename_remove_tmp(self):
-        os.rename(self.tmp_file, self.opts.output_file)
+        try:
+            os.rename(self.tmp_file, self.opts.output_file)
+        except:
+            print('********* File Not Found *********') 

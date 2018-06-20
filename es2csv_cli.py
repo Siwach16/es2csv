@@ -44,6 +44,8 @@ def main():
     p.add_argument('--json', dest='json_mode', action='store_true', help='Override csv format to json.')
     p.add_argument('--json-key-mapping', dest='key_mapping', type=str, help='Json format of key value pairs for mapping conversion.')
     p.add_argument('--env', dest='env', type=str, help='environment')
+    p.add_argument('--cache-file', dest='cache_file', type=str, help=' path of cache file')
+    p.add_argument('--use-cache', dest='cache', action='store_true', help='use domain_id and domain_name cache')
     
     if len(sys.argv) == 1:
         p.print_help()
