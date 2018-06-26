@@ -228,16 +228,17 @@ class Es2csv:
         tmp_file.close()
     
     def format_lf_data(self, out, json_key, source,current_hit):
-        if(json_key in self.json_field_dict):
-            if json_key == 'urn':
-                source=source.split(':')[2]
-                out[self.json_field_dict[json_key]] = source
-            elif json_key == 'user_jid':
-                out['id'],out['provider']=source.split('@')[0],source.split('@')[1]
-            elif json_key == 'domain_uuid' and source is None and self.opts.cache:
-                out[self.json_field_dict[json_key]]=self.domain_cache[str(current_hit['domain_id'])]
-            else:
-                out[self.json_field_dict[json_key]] = source
+        if json_key not in self.json_field_dict:
+            return
+        if json_key == 'urn':
+            source=source.split(':')[2]
+            out[self.json_field_dict[json_key]] = source
+        elif json_key == 'user_jid':
+            out['id'],out['provider']=source.split('@')[0],source.split('@')[1]
+        elif json_key == 'domain_uuid' and source is None and self.opts.cache:
+            out[self.json_field_dict[json_key]]=self.domain_cache[str(current_hit['domain_id'])]
+        else:
+            out[self.json_field_dict[json_key]] = source
     
     def write_to_csv(self):
         if self.num_results > 0:
