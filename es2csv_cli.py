@@ -56,6 +56,8 @@ def main():
     es.create_connection()
     es.check_indexes()
     es.search_query()
+    if opts.output_file == 'stdout':
+        return
     if not opts.json_mode:
         es.write_to_csv()
     else:

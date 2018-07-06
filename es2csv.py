@@ -137,27 +137,28 @@ class Es2csv:
         res = self.es_conn.search(**search_args)
         self.num_results = res['hits']['total']
 
-        print('Found {} results.'.format(self.num_results))
+        #print('Found {} results.'.format(self.num_results))
         if self.opts.debug_mode:
             print(json.dumps(res, ensure_ascii=False).encode('utf8'))
 
         if self.num_results > 0:
             if not self.opts.json_mode :
                 codecs.open(self.opts.output_file, mode='w', encoding='utf-8').close()
-            codecs.open(self.tmp_file, mode='w', encoding='utf-8').close()
+            if not self.opts.output_file == 'stdout':
+                codecs.open(self.tmp_file, mode='w', encoding='utf-8').close()
 
             hit_list = []
             total_lines = 0
-
-            widgets = ['Run query ',
-                       progressbar.Bar(left='[', marker='#', right=']'),
-                       progressbar.FormatLabel(' [%(value)i/%(max)i] ['),
-                       progressbar.Percentage(),
-                       progressbar.FormatLabel('] [%(elapsed)s] ['),
-                       progressbar.ETA(), '] [',
-                       progressbar.FileTransferSpeed(unit='docs'), ']'
-                       ]
-            bar = progressbar.ProgressBar(widgets=widgets, maxval=self.num_results).start()
+            if self.opts.output_file != 'stdout':
+                widgets = ['Run query ',
+                           progressbar.Bar(left='[', marker='#', right=']'),
+                           progressbar.FormatLabel(' [%(value)i/%(max)i] ['),
+                           progressbar.Percentage(),
+                           progressbar.FormatLabel('] [%(elapsed)s] ['),
+                           progressbar.ETA(), '] [',
+                           progressbar.FileTransferSpeed(unit='docs'), ']'
+                           ]
+                bar = progressbar.ProgressBar(widgets=widgets, maxval=self.num_results).start()
 
             while total_lines != self.num_results:
                 if res['_scroll_id'] not in self.scroll_ids:
@@ -168,7 +169,8 @@ class Es2csv:
                     break
                 for hit in res['hits']['hits']:
                     total_lines += 1
-                    bar.update(total_lines)
+                    if self.opts.output_file != 'stdout':
+                        bar.update(total_lines) 
                     hit_list.append(hit)
                     if len(hit_list) == FLUSH_BUFFER:
                         self.flush_to_file(hit_list)
@@ -180,7 +182,8 @@ class Es2csv:
                             return
                 res = next_scroll(res['_scroll_id'])
             self.flush_to_file(hit_list)
-            bar.finish()
+            if self.opts.output_file != 'stdout':
+                bar.finish()
 
     def flush_to_file(self, hit_list):
         def to_keyvalue_pairs(source, ancestors=[], header_delimeter='.',current_hit=None):
@@ -210,6 +213,19 @@ class Es2csv:
                         out[header] =  '{}{}{}'.format(out[header], self.opts.delimiter, source)
                 except:
                     out[header] = source
+
+        if self.opts.output_file == 'stdout':
+            for hit in hit_list:
+                meta_set=set(META_FIELDS).intersection(set(self.json_field_dict.keys())) if self.opts.json_mode else META_FIELDS
+                out = {self.json_field_dict[field] if self.opts.json_mode else field : hit[field] for field in meta_set } if self.opts.meta_fields else {}
+                if '_source' in hit and len(hit['_source']) > 0:
+                    to_keyvalue_pairs(hit['_source'])
+                    out['env'] = self.opts.env
+                    if self.opts.cache:
+                        out.pop('tenant_id',None)
+                    print(json.dumps(out))
+            return
+
 
         with codecs.open(self.tmp_file, mode='a', encoding='utf-8') as tmp_file:
             for hit in hit_list:
@@ -281,4 +297,4 @@ class Es2csv:
         try:
             os.rename(self.tmp_file, self.opts.output_file)
         except:
-            print('********* File Not Found *********')
+            print('********* Data Not Found *********')
