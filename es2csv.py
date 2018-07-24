@@ -4,6 +4,7 @@ import json
 import codecs
 import elasticsearch
 import progressbar
+import re
 from backports import csv
 from functools import wraps
 
@@ -45,6 +46,7 @@ def retry(ExceptionToCheck, tries=TIMES_TO_TRY, delay=RETRY_DELAY):
         return f_retry
 
     return deco_retry
+
 
 
 class Es2csv:
@@ -251,11 +253,16 @@ class Es2csv:
             out[self.json_field_dict[json_key]] = source
         elif json_key == 'user_jid':
             out['id'],out['provider']=source.split('@')[0],source.split('@')[1]
+        elif json_key in ['uuid','content.id']:
+            out[self.json_field_dict[json_key]]=self.getcontent_id(source)
         elif json_key == 'domain_uuid' and source is None and self.opts.cache:
             out[self.json_field_dict[json_key]]=self.domain_cache[str(current_hit['domain_id'])]
         else:
             out[self.json_field_dict[json_key]] = source
-    
+
+    def getcontent_id(self,source):
+        return re.findall(r'\d+',source.split('%40')[0])[-1]
+
     def write_to_csv(self):
         if self.num_results > 0:
             self.num_results = sum(1 for line in codecs.open(self.tmp_file, mode='r', encoding='utf-8'))
