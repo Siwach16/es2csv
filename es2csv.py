@@ -253,7 +253,7 @@ class Es2csv:
             out[self.json_field_dict[json_key]] = source
         elif json_key == 'user_jid':
             out['id'],out['provider']=source.split('@')[0],source.split('@')[1]
-        elif json_key in ['uuid','content.id','content.id_str']:
+        elif json_key in ['uuid','content.id','content.id_str','content.message.id']:
             if json_key=='content.id' and current_hit['content.id_str'] is not None:
                 return
             out[self.json_field_dict[json_key]]=self.getcontent_id(source)
