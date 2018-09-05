@@ -5,6 +5,7 @@ import codecs
 import elasticsearch
 import progressbar
 import re
+import sys
 from backports import csv
 from functools import wraps
 
@@ -225,7 +226,12 @@ class Es2csv:
                     out['env'] = self.opts.env
                     if self.opts.cache:
                         out.pop('tenant_id',None)
-                    print(json.dumps(out))
+                    if not out['id'].isdigit():
+                        out['id'] = out['id'].replace('@facebook.com','').replace('urn:livefyre:provider=facebook.com:author=','')
+                    if not out['id'].isdigit() or not out['content_id'].isdigit():
+                        sys.stderr.write(json.dumps(out))
+                    else:
+                        print(json.dumps(out))
             return
 
 
@@ -263,7 +269,10 @@ class Es2csv:
             out[self.json_field_dict[json_key]] = source
 
     def getcontent_id(self,source):
-        return re.findall(r'\d+',source.split('%40')[0])[-1]
+        if any(x in source for x in ['facebook','fb','tw','twitter','_']):
+            return re.findall(r'\d+',source.split('%40')[0])[-1]
+        else:
+            return source
 
     def write_to_csv(self):
         if self.num_results > 0:
