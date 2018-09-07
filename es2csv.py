@@ -228,10 +228,13 @@ class Es2csv:
                         out.pop('tenant_id',None)
                     if not out['id'].isdigit():
                         out['id'] = out['id'].replace('@facebook.com','').replace('urn:livefyre:provider=facebook.com:author=','')
-                    if not out['id'].isdigit() or not out['content_id'].isdigit():
-                        sys.stderr.write(json.dumps(out))
-                    else:
-                        print(json.dumps(out))
+                        if not out['id'].isdigit():
+                            sys.stderr.write(json.dumps(out)+'\n')
+                            return
+                    if not out['content_id'].isdigit():
+                        sys.stderr.write(json.dumps(out)+'\n')
+                        out['content_id']=''
+                    print(json.dumps(out))
             return
 
 
@@ -265,12 +268,17 @@ class Es2csv:
             out[self.json_field_dict[json_key]]=self.getcontent_id(source)
         elif json_key == 'domain_uuid' and source is None and self.opts.cache:
             out[self.json_field_dict[json_key]]=self.domain_cache[str(current_hit['domain_id'])]
+        elif json_key in ['content.generator.id','generator.id']:
+            if any(x == source for x in ['facebook.com','twitter.com']):
+                out[self.json_field_dict[json_key]]=source
         else:
             out[self.json_field_dict[json_key]] = source
 
     def getcontent_id(self,source):
-        if any(x in source for x in ['facebook','fb','tw','twitter','_']):
-            return re.findall(r'\d+',source.split('%40')[0])[-1]
+        contentids=re.split('-|_|@|%40', source)
+        result = [e for e in contentids if e.isdigit()]
+        if result:
+            return result[-1]
         else:
             return source
 
